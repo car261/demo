@@ -107,6 +107,31 @@ lib/
 - **Networking**: Dio (prepared for future backend)
 - **Image Picker**: image_picker
 
+
+# Food Assistant App
+
+## Overview
+A Flutter + Flask app that detects ingredients from food images.
+
+## Tech Stack
+- Flutter (Frontend)
+- Flask (Backend API)
+- MongoDB
+- Celery Worker
+- Redis
+- docker-compose
+- docker
+- Future: CLIP / ML model
+
+## How to Run
+### Backend
+cd food-assistant-backend
+pip install -r requirements.txt
+python app.py
+
+### Frontend
+flutter pub get
+flutter run
 ## Notes
 
 - All data is stored in memory (no persistence)
