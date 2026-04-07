@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
+import 'package:chatgpt_clone/core/services/api_service.dart';
 import '../../domain/models/chat.dart';
 import '../../domain/models/message.dart';
 import 'chat_list_provider.dart';
@@ -16,10 +17,11 @@ final chatProvider = Provider.family<Chat?, String>((ref, chatId) {
 });
 
 class ChatNotifier {
-  ChatNotifier(this.ref, this.chatId);
+  ChatNotifier(this.ref, this.chatId) : _apiService = ApiService();
 
   final Ref ref;
   final String chatId;
+  final ApiService _apiService;
 
   Future<void> sendMessage(String text) async {
     if (text.trim().isEmpty) return;
@@ -50,23 +52,8 @@ class ChatNotifier {
       ),
     );
 
-    await Future.delayed(const Duration(seconds: 1));
-
-    final assistantMessage = Message(
-      id: _uuid.v4(),
-      text: _generateAssistantResponse(text),
-      isUser: false,
-      timestamp: DateTime.now(),
-    );
-
-    final finalChat = chatListNotifier.getChatById(chatId);
-    if (finalChat != null) {
-      chatListNotifier.updateChat(
-        finalChat.copyWith(
-          messages: [...finalChat.messages, assistantMessage],
-        ),
-      );
-    }
+    // Use API instead of mock
+    await chatListNotifier.sendMessage(chatId, text);
   }
 
   Future<void> sendImageMessage(String imagePath) async {
@@ -96,11 +83,12 @@ class ChatNotifier {
       ),
     );
 
-    await Future.delayed(const Duration(milliseconds: 1500));
+    // Call backend placeholder for food analysis
+    final analysisText = await _generateFoodAnalysisResponse();
 
     final assistantMessage = Message(
       id: _uuid.v4(),
-      text: _generateFoodAnalysisResponse(),
+      text: analysisText,
       isUser: false,
       timestamp: DateTime.now(),
     );
@@ -115,49 +103,24 @@ class ChatNotifier {
     }
   }
 
-  String _generateAssistantResponse(String userMessage) {
-    final responses = [
-      "That's an interesting question! Let me help you with that.",
-      "I understand what you're asking. Here's what I think...",
-      "Great question! Based on my knowledge, I can tell you that...",
-      "Thanks for asking! Let me break this down for you.",
-      "I'd be happy to help with that. Here's my response...",
-    ];
-    
-    return responses[DateTime.now().millisecond % responses.length];
-  }
+  /// Placeholder that calls the backend /ask endpoint to simulate
+  /// food image analysis. The actual image is not sent yet; only
+  /// a descriptive query string is used.
+  Future<String> _generateFoodAnalysisResponse() async {
+    try {
+      final response = await _apiService.post('/ask', data: {
+        'query': 'Please provide a nutritional analysis for the food in the image.',
+      });
 
-  String _generateFoodAnalysisResponse() {
-    final foodItems = [
-      'pizza',
-      'burger',
-      'salad',
-      'pasta',
-      'sushi',
-      'sandwich',
-      'soup',
-      'steak',
-      'chicken',
-      'fish',
-      'rice bowl',
-      'noodles',
-      'tacos',
-      'curry',
-      'wrap',
-    ];
-    
-    final calories = [250, 350, 450, 550, 650, 750, 850];
-    
-    final selectedFood = foodItems[DateTime.now().millisecond % foodItems.length];
-    final selectedCalories = calories[DateTime.now().second % calories.length];
-    
-    final responses = [
-      "This looks like $selectedFood! 🍽️\n\nEstimated calories: ~$selectedCalories kcal\n\nNutritional highlights:\n• Good source of protein\n• Contains essential vitamins\n• Moderate carbohydrates\n\nWould you like more detailed nutritional information?",
-      "I can see $selectedFood in your image! 😋\n\nCalorie estimate: $selectedCalories kcal\n\nThis meal appears to be:\n• Balanced in macronutrients\n• Rich in flavor\n• A satisfying portion\n\nNeed cooking tips or recipes?",
-      "That's a delicious-looking $selectedFood! 🌟\n\nApproximate calories: $selectedCalories kcal\n\nHealth notes:\n• Provides good energy\n• Contains important nutrients\n• Part of a balanced diet\n\nShall I suggest similar healthy alternatives?",
-    ];
-    
-    return responses[DateTime.now().millisecond % responses.length];
+      if (response.statusCode == 200) {
+        return (response.data['response'] as String?) ??
+            'Image analysis response not available.';
+      }
+
+      return 'Image analysis failed: \'${response.data['msg'] ?? 'Unknown error'}\'';
+    } catch (e) {
+      return 'Network error during image analysis: ${e.toString()}';
+    }
   }
 }
 

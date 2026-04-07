@@ -1,11 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
+import 'package:chatgpt_clone/core/services/api_service.dart';
 import '../../domain/models/chat.dart';
 import '../../domain/models/message.dart';
 
 const _uuid = Uuid();
 
 class ChatListNotifier extends StateNotifier<List<Chat>> {
+  final ApiService _apiService = ApiService();
   ChatListNotifier() : super(_mockChats);
 
   static final List<Chat> _mockChats = [
@@ -101,6 +103,72 @@ class ChatListNotifier extends StateNotifier<List<Chat>> {
     );
     addChat(newChat);
     return newChatId;
+  }
+
+  Future<void> sendMessage(String chatId, String userMessage) async {
+    final chat = getChatById(chatId);
+    if (chat == null) return;
+
+    // Add user message
+    final userMsg = Message(
+      id: _uuid.v4(),
+      text: userMessage,
+      isUser: true,
+      timestamp: DateTime.now(),
+    );
+
+    final updatedChat = chat.copyWith(
+      messages: [...chat.messages, userMsg],
+    );
+    updateChat(updatedChat);
+
+    try {
+      // Call API
+      final response = await _apiService.post('/ask', data: {'query': userMessage});
+
+      if (response.statusCode == 200) {
+        final aiResponse = response.data['response'] ?? 'No response';
+
+        // Add AI message
+        final aiMsg = Message(
+          id: _uuid.v4(),
+          text: aiResponse,
+          isUser: false,
+          timestamp: DateTime.now(),
+        );
+
+        final finalChat = updatedChat.copyWith(
+          messages: [...updatedChat.messages, aiMsg],
+        );
+        updateChat(finalChat);
+      } else {
+        // Add error message
+        final errorMsg = Message(
+          id: _uuid.v4(),
+          text: 'Error: ${response.data['msg'] ?? 'Failed to get response'}',
+          isUser: false,
+          timestamp: DateTime.now(),
+        );
+
+        final finalChat = updatedChat.copyWith(
+          messages: [...updatedChat.messages, errorMsg],
+        );
+        updateChat(finalChat);
+      }
+    } catch (e) {
+      // Add error message
+      final errorMsg = Message(
+        id: _uuid.v4(),
+        text: 'Network error: ${e.toString()}',
+        isUser: false,
+        timestamp: DateTime.now(),
+      );
+
+      final finalChat = updatedChat.copyWith(
+        messages: [...updatedChat.messages, errorMsg],
+      );
+      updateChat(finalChat);
+    }
   }
 }
 

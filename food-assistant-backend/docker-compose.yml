@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - food-assistant-network
+
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    networks:
+      - food-assistant-network
+
+  app:
+    build: .
+    ports:
+      - "5000:5000"
+    depends_on:
+      - mongodb
+      - redis
+    environment:
+      - FLASK_ENV=development
+    networks:
+      - food-assistant-network
+
+volumes:
+  mongodb_data:
+
+networks:
+  food-assistant-network:
+    driver: bridge
