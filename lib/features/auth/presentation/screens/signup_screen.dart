@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../providers/auth_provider.dart';
+import 'package:chatgpt_clone/features/auth/presentation/providers/auth_provider.dart';
 
 class SignupScreen extends ConsumerStatefulWidget {
   const SignupScreen({super.key});
@@ -31,7 +31,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     );
 
     if (success && mounted) {
-      // Navigate to home screen
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Signup successful")),
+      );
       context.go('/home');
     }
   }
@@ -55,58 +57,54 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 32),
-              
+
               Text(
                 'Create account',
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+                      fontWeight: FontWeight.bold,
+                    ),
               ),
-              
+
               const SizedBox(height: 8),
-              
+
               Text(
                 'Sign up to get started',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Colors.grey,
-                ),
+                      color: Colors.grey,
+                    ),
               ),
-              
+
               const SizedBox(height: 48),
-              
+
               TextField(
                 controller: _nameController,
                 decoration: const InputDecoration(
                   labelText: 'Name',
-                  hintText: 'Enter your name',
                   prefixIcon: Icon(Icons.person_outline),
                 ),
               ),
-              
+
               const SizedBox(height: 16),
-              
+
               TextField(
                 controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
                 decoration: const InputDecoration(
                   labelText: 'Email',
-                  hintText: 'Enter your email',
                   prefixIcon: Icon(Icons.email_outlined),
                 ),
               ),
-              
+
               const SizedBox(height: 16),
-              
+
               TextField(
                 controller: _passwordController,
                 obscureText: true,
                 decoration: const InputDecoration(
                   labelText: 'Password',
-                  hintText: 'Enter your password',
                   prefixIcon: Icon(Icons.lock_outline),
                 ),
               ),
-              
+
               if (authState.error != null) ...[
                 const SizedBox(height: 16),
                 Text(
@@ -115,22 +113,18 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                   textAlign: TextAlign.center,
                 ),
               ],
-              
+
               const SizedBox(height: 32),
-              
+
               ElevatedButton(
                 onPressed: authState.isLoading ? null : _handleSignup,
                 child: authState.isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
+                    ? const CircularProgressIndicator()
                     : const Text('Sign up'),
               ),
-              
+
               const SizedBox(height: 16),
-              
+
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [

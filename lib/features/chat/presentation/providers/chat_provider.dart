@@ -1,9 +1,12 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import 'package:chatgpt_clone/core/services/api_service.dart';
-import '../../domain/models/chat.dart';
-import '../../domain/models/message.dart';
-import 'chat_list_provider.dart';
+import 'package:chatgpt_clone/features/chat/domain/models/chat.dart';
+import 'package:chatgpt_clone/features/chat/domain/models/message.dart';
+import 'package:chatgpt_clone/features/chat/presentation/providers/chat_list_provider.dart';
 
 const _uuid = Uuid();
 
@@ -83,8 +86,45 @@ class ChatNotifier {
       ),
     );
 
-    // Call backend placeholder for food analysis
-    final analysisText = await _generateFoodAnalysisResponse();
+    // Call backend /predict with the selected image
+    String analysisText;
+    try {
+      final response = await _apiService.postMultipart(
+        '/predict',
+        filePath: imagePath,
+      );
+
+      Map<String, dynamic>? data;
+      try {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic>) {
+          data = decoded;
+        }
+      } catch (_) {
+        data = null;
+      }
+
+      if (response.statusCode == 200) {
+        final dynamic rawIngredients = data?['ingredients'];
+        final ingredients = rawIngredients is List
+            ? rawIngredients.whereType<String>().toList()
+            : <String>[];
+
+        if (ingredients.isEmpty) {
+          analysisText = 'No ingredients detected.';
+        } else {
+          analysisText = 'Ingredients: ${ingredients.join(', ')}';
+        }
+      } else {
+        final dynamic rawError = data?['error'];
+        final errorText = rawError is String && rawError.isNotEmpty
+            ? rawError
+            : 'Unknown error';
+        analysisText = 'Prediction failed: $errorText';
+      }
+    } catch (e) {
+      analysisText = 'Network error during prediction: ${e.toString()}';
+    }
 
     final assistantMessage = Message(
       id: _uuid.v4(),
@@ -100,26 +140,6 @@ class ChatNotifier {
           messages: [...finalChat.messages, assistantMessage],
         ),
       );
-    }
-  }
-
-  /// Placeholder that calls the backend /ask endpoint to simulate
-  /// food image analysis. The actual image is not sent yet; only
-  /// a descriptive query string is used.
-  Future<String> _generateFoodAnalysisResponse() async {
-    try {
-      final response = await _apiService.post('/ask', data: {
-        'query': 'Please provide a nutritional analysis for the food in the image.',
-      });
-
-      if (response.statusCode == 200) {
-        return (response.data['response'] as String?) ??
-            'Image analysis response not available.';
-      }
-
-      return 'Image analysis failed: \'${response.data['msg'] ?? 'Unknown error'}\'';
-    } catch (e) {
-      return 'Network error during image analysis: ${e.toString()}';
     }
   }
 }

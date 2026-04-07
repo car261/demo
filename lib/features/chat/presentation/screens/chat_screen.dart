@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/chat_provider.dart';
-import '../widgets/chat_bubble.dart';
-import '../widgets/chat_input.dart';
-import '../../../../shared/widgets/app_drawer.dart';
+import 'package:chatgpt_clone/features/chat/presentation/providers/chat_provider.dart';
+import 'package:chatgpt_clone/features/chat/presentation/widgets/chat_bubble.dart';
+import 'package:chatgpt_clone/features/chat/presentation/widgets/chat_input.dart';
+import 'package:chatgpt_clone/shared/widgets/app_drawer.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   final String chatId;

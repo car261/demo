@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../features/chat/presentation/providers/chat_list_provider.dart';
-import '../../features/auth/presentation/providers/auth_provider.dart';
+import 'package:chatgpt_clone/features/chat/presentation/providers/chat_list_provider.dart';
+import 'package:chatgpt_clone/features/auth/presentation/providers/auth_provider.dart';
 
 class AppDrawer extends ConsumerWidget {
   final String? currentChatId;

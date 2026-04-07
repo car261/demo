@@ -1,8 +1,9 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../../domain/models/message.dart';
-import '../screens/image_viewer_screen.dart';
+import 'package:chatgpt_clone/features/chat/domain/models/message.dart';
+import 'package:chatgpt_clone/features/chat/presentation/screens/image_viewer_screen.dart';
 
 class ChatBubble extends StatelessWidget {
   final Message message;

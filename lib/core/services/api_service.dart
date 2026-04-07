@@ -1,75 +1,60 @@
-import 'package:dio/dio.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:http/http.dart' as http;
+
+import 'api_config.dart';
 
 class ApiService {
-  static final ApiService _instance = ApiService._internal();
-  factory ApiService() => _instance;
+  final String baseUrl = ApiConfig.baseUrl;
 
-  late Dio _dio;
-  SharedPreferences? _prefs;
+  Future<http.Response> post(String endpoint, {Map<String, dynamic>? data}) async {
+    final url = Uri.parse("$baseUrl$endpoint");
 
-  ApiService._internal() {
-    _dio = Dio(
-      BaseOptions(
-        baseUrl: 'http://localhost:5000',
-        connectTimeout: const Duration(seconds: 10),
-        receiveTimeout: const Duration(seconds: 10),
-        // Do NOT force Content-Type here; let Dio
-        // set it automatically only when needed.
-      ),
-    );
+    // Debug logs for requests
+    print("URL: $url");
+    print("BODY: ${data != null ? jsonEncode(data) : 'null'}");
 
-    // Interceptor reads the JWT token from the in-memory field.
-    _dio.interceptors.add(
-      InterceptorsWrapper(
-        onRequest: (options, handler) {
-          final token = _jwtToken;
-          if (token != null) {
-            options.headers['Authorization'] = 'Bearer $token';
-          }
-          handler.next(options);
-        },
-      ),
-    );
-
-    // Load token from SharedPreferences asynchronously.
-    _loadToken();
-  }
-
-  String? _jwtToken;
-
-  Future<void> _loadToken() async {
-    _prefs ??= await SharedPreferences.getInstance();
-    _jwtToken = _prefs!.getString('access_token');
-  }
-
-  String? get token => _jwtToken;
-
-  void setToken(String token) {
-    _jwtToken = token;
-    _prefs?.setString('access_token', token);
-  }
-
-  void clearToken() {
-    _jwtToken = null;
-    _prefs?.remove('access_token');
-  }
-
-  Future<Response> post(String path, {Map<String, dynamic>? data}) async {
     try {
-      final response = await _dio.post(path, data: data);
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode(data),
+      );
+
+      print("STATUS: ${response.statusCode}");
+      print("RESPONSE: ${response.body}");
+
       return response;
+    } on SocketException {
+      // Backend not reachable / no network
+      print("Network error: Backend not reachable");
+      throw Exception("Backend not reachable");
+    } on TimeoutException {
+      // Request timed out
+      print("Network error: Timeout occurred");
+      throw Exception("Timeout occurred");
     } catch (e) {
-      rethrow;
+      // Generic connection/reset or unexpected error
+      print("Network error: $e");
+      throw Exception("Connection reset");
     }
   }
 
-  Future<Response> get(String path) async {
-    try {
-      final response = await _dio.get(path);
-      return response;
-    } catch (e) {
-      rethrow;
-    }
+  Future<http.Response> postMultipart(
+    String endpoint, {
+    required String filePath,
+  }) async {
+    final url = Uri.parse("$baseUrl$endpoint");
+
+    // Debug log for multipart requests
+    print("Calling API: $url");
+
+    final request = http.MultipartRequest("POST", url);
+    request.files.add(await http.MultipartFile.fromPath("image", filePath));
+
+    final streamedResponse = await request.send();
+    return await http.Response.fromStream(streamedResponse);
   }
 }

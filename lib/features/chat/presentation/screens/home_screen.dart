@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../providers/chat_list_provider.dart';
 import 'package:intl/intl.dart';
+import 'package:chatgpt_clone/features/chat/presentation/providers/chat_list_provider.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});

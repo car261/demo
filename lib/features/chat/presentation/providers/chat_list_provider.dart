@@ -1,8 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import 'package:chatgpt_clone/core/services/api_service.dart';
-import '../../domain/models/chat.dart';
-import '../../domain/models/message.dart';
+import 'package:chatgpt_clone/features/chat/domain/models/chat.dart';
+import 'package:chatgpt_clone/features/chat/domain/models/message.dart';
 
 const _uuid = Uuid();
 
@@ -126,8 +128,21 @@ class ChatListNotifier extends StateNotifier<List<Chat>> {
       // Call API
       final response = await _apiService.post('/ask', data: {'query': userMessage});
 
+      Map<String, dynamic>? data;
+      try {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic>) {
+          data = decoded;
+        }
+      } catch (_) {
+        data = null;
+      }
+
       if (response.statusCode == 200) {
-        final aiResponse = response.data['response'] ?? 'No response';
+        final dynamic rawResponse = data?['response'];
+        final aiResponse = rawResponse is String && rawResponse.isNotEmpty
+            ? rawResponse
+            : 'No response';
 
         // Add AI message
         final aiMsg = Message(
@@ -142,10 +157,15 @@ class ChatListNotifier extends StateNotifier<List<Chat>> {
         );
         updateChat(finalChat);
       } else {
+        final dynamic rawError = data?['error'];
+        final errorText = rawError is String && rawError.isNotEmpty
+            ? rawError
+            : 'Failed to get response';
+
         // Add error message
         final errorMsg = Message(
           id: _uuid.v4(),
-          text: 'Error: ${response.data['msg'] ?? 'Failed to get response'}',
+          text: 'Error: $errorText',
           isUser: false,
           timestamp: DateTime.now(),
         );
