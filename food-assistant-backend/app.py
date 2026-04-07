@@ -1,102 +1,129 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS  # <-- Added for Flutter compatibility
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
-from pymongo import MongoClient
-import redis
-import json
+import os
+
+from flask import Flask, jsonify
+from flask_cors import CORS
+from flask_jwt_extended import JWTManager
+from werkzeug.exceptions import HTTPException
+
+from config import Config
+from routes.auth_routes import auth_bp
+from routes.llm_routes import llm_bp
+from routes.predict_routes import predict_bp
+from services.response import api_response
+
 
 app = Flask(__name__)
+app.config.from_object(Config)
 
-# 1. Enable CORS: Allow Flutter Web from any localhost port to talk to Flask
-# This handles both simple requests and preflight (OPTIONS) requests.
+# Enable CORS for all origins (Flutter web + emulators)
 CORS(
     app,
-    resources={r"/*": {"origins": ["http://localhost", "http://localhost:*", "http://127.0.0.1", "http://127.0.0.1:*"]}},
+    resources={r"/*": {"origins": "*"}},
+    supports_credentials=True,
+    expose_headers=["Authorization"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
-# --- Configuration ---
-app.config["JWT_SECRET_KEY"] = "your_super_secret_key" 
+
+# JWT setup
 jwt = JWTManager(app)
 
-# --- Databases ---
-# Added try-except blocks so the app stays alive even if DBs are offline
-try:
-    mongo_client = MongoClient("mongodb://localhost:27017/", serverSelectionTimeoutMS=2000)
-    db = mongo_client["food_assistant"]
-    users_col = db["users"]
-    chats_col = db["chats"]
-    # Trigger a quick check
-    mongo_client.server_info() 
-except Exception as e:
-    print(f"⚠️ MongoDB not connected: {e}")
 
-try:
-    cache = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True, socket_timeout=2)
-except Exception as e:
-    print(f"⚠️ Redis not connected: {e}")
+@jwt.unauthorized_loader
+def handle_missing_jwt(reason: str):
+    return api_response(
+        data=None,
+        message="Authorization required",
+        status_code=401,
+        success=False,
+        errors={"reason": reason},
+    )
 
-# --- Routes ---
 
-@app.route("/register", methods=["POST"])
-def register():
-    data = request.get_json()
-    if not data or "username" not in data or "password" not in data:
-        return jsonify(msg="Missing username or password"), 400
-    
-    # Check if user exists
-    if users_col.find_one({"username": data["username"]}):
-        return jsonify(msg="User already exists"), 409
+@jwt.invalid_token_loader
+def handle_invalid_jwt(reason: str):
+    return api_response(
+        data=None,
+        message="Invalid token",
+        status_code=422,
+        success=False,
+        errors={"reason": reason},
+    )
 
-    users_col.insert_one({"username": data["username"], "password": data["password"]})
-    return jsonify(msg="User registered"), 201
 
-@app.route("/login", methods=["POST"])
-def login():
-    data = request.get_json()
-    user = users_col.find_one({"username": data["username"], "password": data["password"]})
-    if user:
-        # In newer Flask-JWT-Extended, 'identity' must be a string
-        access_token = create_access_token(identity=str(data["username"]))
-        return jsonify(access_token=access_token)
-    return jsonify(msg="Invalid credentials"), 401
+@jwt.expired_token_loader
+def handle_expired_jwt(jwt_header, jwt_data):
+    return api_response(
+        data=None,
+        message="Token has expired",
+        status_code=401,
+        success=False,
+        errors={"token_type": jwt_data.get("type")},
+    )
 
-@app.route("/ask", methods=["POST"])
-@jwt_required()
-def ask_llm():
-    current_user = get_jwt_identity()
-    user_query = request.json.get("query")
-    
-    if not user_query:
-        return jsonify(msg="No query provided"), 400
 
-    # 1. Check Redis Cache First (with safety check)
-    try:
-        cached_response = cache.get(user_query)
-        if cached_response:
-            return jsonify(response=cached_response, source="cache")
-    except:
-        pass # Skip cache if Redis is down
+@jwt.needs_fresh_token_loader
+def handle_needs_fresh_jwt(reason: str):
+    return api_response(
+        data=None,
+        message="Fresh token required",
+        status_code=401,
+        success=False,
+        errors={"reason": reason},
+    )
 
-    # 2. Simulated LLM Response
-    response = f"Hello {current_user}! Simulated LLM response for: {user_query}" 
 
-    # 3. Save to Redis & MongoDB (with safety checks)
-    try:
-        cache.setex(user_query, 3600, response)
-    except:
-        pass
+@jwt.revoked_token_loader
+def handle_revoked_jwt(jwt_header, jwt_data):
+    return api_response(
+        data=None,
+        message="Token has been revoked",
+        status_code=401,
+        success=False,
+        errors={"jti": jwt_data.get("jti")},
+    )
 
-    try:
-        chats_col.insert_one({
-            "user": current_user,
-            "query": user_query,
-            "response": response
-        })
-    except:
-        print("Could not save chat to MongoDB")
 
-    return jsonify(response=response, source="llm")
+@app.errorhandler(HTTPException)
+def handle_http_exception(exc: HTTPException):
+    return api_response(
+        data=None,
+        message=exc.description or exc.name,
+        status_code=exc.code or 500,
+        success=False,
+        errors={"code": exc.code, "name": exc.name},
+    )
+
+
+@app.errorhandler(Exception)
+def handle_unexpected_exception(exc: Exception):
+    # In production you would log the full exception here.
+    return api_response(
+        data=None,
+        message="Internal server error",
+        status_code=500,
+        success=False,
+        errors={"type": exc.__class__.__name__},
+    )
+
+
+# Register routes
+app.register_blueprint(auth_bp)
+app.register_blueprint(llm_bp)
+app.register_blueprint(predict_bp)
+
+
+@app.route("/health", methods=["GET"])
+def health() -> tuple[dict, int]:
+    """Simple health check for containers and external clients.
+
+    Returns a minimal JSON body so tools like Flutter or Docker healthchecks
+    can verify the backend is reachable.
+    """
+    return jsonify(status="ok"), 200
+
 
 if __name__ == "__main__":
-    # Use 0.0.0.0 to allow connections from other devices/emulators
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    # Bind to all interfaces so Docker and external clients can reach the app
+    # and use the fixed port 5000 as required.
+    app.run(host="0.0.0.0", port=5000)

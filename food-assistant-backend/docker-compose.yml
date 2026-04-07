@@ -1,37 +1,26 @@
 version: '3.8'
 
 services:
-  mongodb:
-    image: mongo:latest
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongodb_data:/data/db
-    networks:
-      - food-assistant-network
-
-  redis:
-    image: redis:latest
-    ports:
-      - "6379:6379"
-    networks:
-      - food-assistant-network
-
-  app:
+  backend:
     build: .
     ports:
       - "5000:5000"
     depends_on:
-      - mongodb
+      - mongo
       - redis
     environment:
-      - FLASK_ENV=development
-    networks:
-      - food-assistant-network
+      # Point backend to Docker service names instead of localhost
+      MONGO_URI: mongodb://mongo:27017/chatgpt_clone
+      REDIS_HOST: redis
 
-volumes:
-  mongodb_data:
+  mongo:
+    image: mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
 
-networks:
-  food-assistant-network:
-    driver: bridge
+  redis:
+    image: redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
