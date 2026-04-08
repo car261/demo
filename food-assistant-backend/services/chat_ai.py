@@ -1,8 +1,9 @@
 import json
+from datetime import datetime, timezone
 
 from services.cache import cache
-
-chat_history = []
+from services.db import get_chats_collection
+from services.sqlite_service import save_message, get_chat_history as get_sqlite_history
 
 LATEST_PREDICTION_KEY = "latest_prediction"
 _latest_prediction = None
@@ -71,7 +72,11 @@ def generate_response(user_message: str, prediction: dict | None) -> str:
     intent = detect_intent(user_message)
 
     if not prediction:
-        return "Please analyze a food item first."
+        if intent == "greeting":
+            return "Hey! Ask me about calories, protein, or ingredients."
+        if intent in {"calories", "protein", "ingredients", "health"}:
+            return "I can help once you analyze a food item."
+        return "Ask me about calories, protein, ingredients, or healthiness."
 
     dish_name = prediction.get("dish_name") or "this dish"
     ingredients = prediction.get("ingredients", [])
@@ -97,10 +102,71 @@ def generate_response(user_message: str, prediction: dict | None) -> str:
     else:
         reply = "Ask me about calories, protein, ingredients, or healthiness."
 
-    chat_history.append({
-        "user": user_message,
-        "assistant": reply,
-        "intent": intent,
-    })
-
     return reply
+
+
+def _serialize_chat(chat_doc: dict) -> dict:
+    created_at = chat_doc.get("created_at")
+    if isinstance(created_at, datetime):
+        created_at = created_at.isoformat()
+
+    messages = []
+    for message in chat_doc.get("messages", []):
+        timestamp = message.get("timestamp")
+        if isinstance(timestamp, datetime):
+            timestamp = timestamp.isoformat()
+        messages.append({
+            "role": message.get("role"),
+            "content": message.get("content"),
+            "timestamp": timestamp,
+        })
+
+    return {
+        "id": str(chat_doc.get("_id")),
+        "user_id": str(chat_doc.get("user_id")),
+        "messages": messages,
+        "created_at": created_at,
+    }
+
+
+def store_chat_message(user_id: str, user_message: str, assistant_message: str) -> dict:
+    chats_col = get_chats_collection()
+    now = datetime.now(timezone.utc)
+
+    save_message(user_id, user_message, True, timestamp=now)
+    save_message(user_id, assistant_message, False, timestamp=now)
+
+    chat_doc = {
+        "user_id": str(user_id),
+        "messages": [
+            {
+                "role": "user",
+                "content": user_message,
+                "timestamp": now,
+            },
+            {
+                "role": "assistant",
+                "content": assistant_message,
+                "timestamp": now,
+            },
+        ],
+        "created_at": now,
+    }
+
+    result = chats_col.insert_one(chat_doc)
+    chat_doc["_id"] = result.inserted_id
+    return _serialize_chat(chat_doc)
+
+
+def get_chat_history(user_id: str, limit: int = 50) -> list[dict]:
+    chats_col = get_chats_collection()
+    cursor = (
+        chats_col.find({"user_id": str(user_id)})
+        .sort("created_at", -1)
+        .limit(limit)
+    )
+    return [_serialize_chat(doc) for doc in cursor]
+
+
+def get_sqlite_chat_history(user_id: str, limit: int = 200) -> list[dict]:
+    return get_sqlite_history(user_id, limit=limit)

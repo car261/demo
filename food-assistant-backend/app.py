@@ -125,4 +125,5 @@ def health() -> tuple[dict, int]:
 if __name__ == "__main__":
     # Bind to all interfaces so Docker and external clients can reach the app
     # and use the fixed port 5000 as required.
-    app.run(host="0.0.0.0", port=5000)
+    debug = os.getenv("FLASK_ENV") == "development"
+    app.run(host="0.0.0.0", port=5000, debug=debug)

@@ -1,45 +1,50 @@
 from flask import Blueprint, request
+from flask_jwt_extended import get_jwt_identity, jwt_required
 
-from services.chat_ai import generate_response, get_latest_prediction
-from services.response import success_response, error_response
+from services.db import get_chat_history, save_chat_message
+from services.demo_ai import generate_response
+from services.response import api_response
 
 llm_bp = Blueprint("llm", __name__)
 
 @llm_bp.route("/chat", methods=["POST"])
+@jwt_required()
 def chat():
-    """Handle chat messages and return AI-generated responses.
-    
-    Expects JSON:
-    {
-        "message": "user question here"
-    }
-    
-    Returns:
-    {
-        "status": "success",
-        "data": {
-            "user": "user question",
-            "assistant": "AI response"
-        }
-    }
-    """
-    try:
-        data = request.get_json()
+    user_id = get_jwt_identity()
+    data = request.get_json(silent=True) or {}
+    message = (data.get("message") or "").strip()
 
-        if not data or "message" not in data:
-            return error_response("Message is required", 400)
+    if not message:
+        return api_response(None, "Message is required", 400, False)
 
-        user_message = str(data["message"]).strip()
-        if not user_message:
-            return error_response("Message is required", 400)
+    # Save user message
+    save_chat_message(user_id, message, 1)
 
-        prediction = get_latest_prediction()
-        reply = generate_response(user_message, prediction)
+    # Generate reply
+    reply = generate_response(message)
 
-        return success_response({
-            "user": user_message,
-            "assistant": reply
-        })
+    # Save bot reply
+    save_chat_message(user_id, reply, 0)
 
-    except Exception as e:
-        return error_response(str(e), 500)
+    return api_response({"reply": reply, "assistant": reply}, "Success")
+
+@llm_bp.route("/history", methods=["GET"])
+@jwt_required()
+def history():
+    user_id = get_jwt_identity()
+    chats = get_chat_history(user_id)
+
+    formatted = []
+    for row in chats:
+        msg = row[0]
+        is_user = row[1]
+        timestamp = row[2] if len(row) > 2 else None
+        formatted.append(
+            {
+                "message": msg,
+                "is_user": is_user,
+                "timestamp": timestamp,
+            }
+        )
+
+    return api_response({"chats": formatted, "messages": formatted}, "Success")

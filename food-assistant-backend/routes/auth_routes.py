@@ -1,55 +1,62 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request
 from flask_jwt_extended import create_access_token
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from services.db import users_col
-from services.response import success_response, error_response
-
+from services.response import api_response
 
 auth_bp = Blueprint("auth", __name__)
 
-
-@auth_bp.route("/signup", methods=["POST"])
+@auth_bp.route("/register", methods=["POST"])
 def register():
     data = request.get_json(silent=True) or {}
-
-    username = (data.get("username") or "").strip()
+    username = (data.get("username") or data.get("email") or "").strip().lower()
     password = data.get("password")
 
     if not username or not password:
-        return error_response("Username and password are required", 400)
+        return api_response(None, "Username/email and password are required", 400, False)
 
     if users_col.find_one({"username": username}):
-        return error_response("User already exists", 409)
+        return api_response(None, "User already exists", 400, False)
 
-    hashed_pw = generate_password_hash(password)
+    hashed_password = generate_password_hash(password)
 
-    users_col.insert_one({"username": username, "password": hashed_pw})
+    user = {
+        "username": username,
+        "password": hashed_password
+    }
 
-    return success_response({
-        "message": "Registered successfully",
-        "username": username
-    }, 201)
+    result = users_col.insert_one(user)
 
+    token = create_access_token(identity=str(result.inserted_id))
+
+    return api_response(
+        {"user_id": str(result.inserted_id), "token": token},
+        "User registered",
+        201,
+        True,
+    )
+
+
+@auth_bp.route("/signup", methods=["POST"])
+def signup_alias():
+    # Backward-compatible alias for frontend clients using /signup
+    return register()
 
 @auth_bp.route("/login", methods=["POST"])
 def login():
     data = request.get_json(silent=True) or {}
-
-    username = (data.get("username") or "").strip()
+    username = (data.get("username") or data.get("email") or "").strip().lower()
     password = data.get("password")
 
     if not username or not password:
-        return error_response("Username and password are required", 400)
+        return api_response(None, "Username/email and password are required", 400, False)
 
     user = users_col.find_one({"username": username})
 
     if not user or not check_password_hash(user["password"], password):
-        return error_response("Invalid credentials", 401)
+        return api_response(None, "Invalid credentials", 401, False)
 
-    token = create_access_token(identity=username)
+    token = create_access_token(identity=str(user["_id"]))
 
-    return success_response({
-        "access_token": token,
-        "username": username
-    })
+    return api_response({"token": token}, "Login successful", 200, True)

@@ -1,36 +1,31 @@
-import random
+def generate_response(user_message: str):
+    msg = user_message.lower()
+
+    if any(word in msg for word in ["hi", "hello", "hey"]):
+        return "Hey! 👋 I’m your food assistant."
+
+    elif "calories" in msg:
+        return "This dish has approximately 250–400 calories."
+
+    elif "protein" in msg:
+        return "This dish contains around 10–20g protein."
+
+    elif "healthy" in msg:
+        return "It can be part of a balanced diet."
+
+    return "Ask me about calories, protein, or food analysis."
 
 
-DEMO_PREDICTIONS = [
-    {
-        "dish_name": "Veggie Fried Rice",
-        "ingredients": ["rice", "egg", "carrot", "peas", "soy sauce"],
-        "calories": 420,
-        "protein": 14,
-        "confidence": 0.82,
-    },
-    {
-        "dish_name": "Grilled Chicken Salad",
-        "ingredients": ["chicken", "lettuce", "tomato", "cucumber", "olive oil"],
-        "calories": 360,
-        "protein": 28,
-        "confidence": 0.88,
-    },
-    {
-        "dish_name": "Paneer Tikka",
-        "ingredients": ["paneer", "yogurt", "spices", "onion", "capsicum"],
-        "calories": 480,
-        "protein": 22,
-        "confidence": 0.79,
-    },
-]
+def predict_image(file_path: str):
+    """Fallback prediction used when the ML model is not wired yet."""
 
-
-def predict_image(file_path: str) -> dict:
-    """Mock AI prediction for an uploaded image.
-
-    Replace the implementation with a real model later. The signature
-    keeps integration simple for future swaps.
-    """
-    _ = file_path
-    return random.choice(DEMO_PREDICTIONS).copy()
+    return {
+        "label": "demo",
+        "confidence": 0.0,
+        "message": "Fallback prediction (model not implemented)",
+        "dish_name": "Demo Dish",
+        "ingredients": [],
+        "calories": None,
+        "protein": None,
+        "source_file": file_path,
+    }

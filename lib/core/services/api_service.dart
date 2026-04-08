@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
@@ -14,7 +13,11 @@ class ApiService {
     print("API Base URL: $baseUrl");
   }
 
-  Future<http.Response> post(String endpoint, {Map<String, dynamic>? data}) async {
+  Future<http.Response> post(
+    String endpoint, {
+    Map<String, dynamic>? data,
+    String? token,
+  }) async {
     final url = Uri.parse("$baseUrl$endpoint");
 
     // Debug logs for requests
@@ -22,11 +25,18 @@ class ApiService {
     print("BODY: ${data != null ? jsonEncode(data) : 'null'}");
 
     try {
-      final response = await http.post(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode(data),
-      ).timeout(
+      final headers = <String, String>{"Content-Type": "application/json"};
+      if (token != null && token.isNotEmpty) {
+        headers["Authorization"] = "Bearer $token";
+      }
+
+      final response = await http
+          .post(
+            url,
+            headers: headers,
+            body: jsonEncode(data),
+          )
+          .timeout(
         const Duration(seconds: 30),
         onTimeout: () {
           throw TimeoutException('Request timeout');
@@ -37,8 +47,7 @@ class ApiService {
       print("RESPONSE: ${response.body}");
 
       return response;
-    } on SocketException {
-      // Backend not reachable / no network
+    } on http.ClientException {
       print("Network error: Backend not reachable");
       throw Exception("Backend not reachable");
     } on TimeoutException {
@@ -52,9 +61,52 @@ class ApiService {
     }
   }
 
+  Future<http.Response> get(
+    String endpoint, {
+    String? token,
+  }) async {
+    final url = Uri.parse("$baseUrl$endpoint");
+
+    print("GET $url");
+
+    try {
+      final headers = <String, String>{"Content-Type": "application/json"};
+      if (token != null && token.isNotEmpty) {
+        headers["Authorization"] = "Bearer $token";
+      }
+
+      final response = await http
+          .get(
+            url,
+            headers: headers,
+          )
+          .timeout(
+            const Duration(seconds: 30),
+            onTimeout: () {
+              throw TimeoutException('Request timeout');
+            },
+          );
+
+      print("STATUS: ${response.statusCode}");
+      print("RESPONSE: ${response.body}");
+
+      return response;
+    } on http.ClientException {
+      print("Network error: Backend not reachable");
+      throw Exception("Backend not reachable");
+    } on TimeoutException {
+      print("Network error: Timeout occurred");
+      throw Exception("Request timeout");
+    } catch (e) {
+      print("Network error: $e");
+      throw Exception("Connection error: $e");
+    }
+  }
+
   Future<http.Response> postMultipart(
     String endpoint, {
     required String filePath,
+    String? token,
   }) async {
     final url = Uri.parse("$baseUrl$endpoint");
 
@@ -64,6 +116,9 @@ class ApiService {
 
     try {
       final request = http.MultipartRequest("POST", url);
+      if (token != null && token.isNotEmpty) {
+        request.headers["Authorization"] = "Bearer $token";
+      }
       request.files.add(await http.MultipartFile.fromPath("image", filePath));
 
       final streamedResponse = await request.send().timeout(
@@ -77,7 +132,7 @@ class ApiService {
       print("STATUS: ${response.statusCode}");
       print("RESPONSE: ${response.body}");
       return response;
-    } on SocketException {
+    } on http.ClientException {
       print("Network error: Backend not reachable");
       throw Exception("Backend not reachable");
     } on TimeoutException {

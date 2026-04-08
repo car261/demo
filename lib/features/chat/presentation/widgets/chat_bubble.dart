@@ -1,9 +1,8 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:chatgpt_clone/features/chat/domain/models/message.dart';
 import 'package:chatgpt_clone/features/chat/presentation/screens/image_viewer_screen.dart';
+import 'package:chatgpt_clone/shared/widgets/adaptive_image.dart';
 
 class ChatBubble extends StatelessWidget {
   final Message message;
@@ -71,8 +70,8 @@ class ChatBubble extends StatelessWidget {
                           topLeft: isUser ? const Radius.circular(18) : const Radius.circular(4),
                           topRight: isUser ? const Radius.circular(4) : const Radius.circular(18),
                         ),
-                        child: Image.file(
-                          File(message.imagePath!),
+                        child: buildAdaptiveImage(
+                          message.imagePath!,
                           fit: BoxFit.cover,
                         ),
                       ),

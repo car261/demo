@@ -26,12 +26,17 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   Future<void> _handleSignup() async {
     final success = await ref.read(authProvider.notifier).signup(
       _nameController.text,
+      _emailController.text,
       _passwordController.text,
     );
 
     if (success && mounted) {
+      final message = ref.read(authProvider).successMessage ?? 'Signup successful';
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Signup successful")),
+        SnackBar(
+          content: Text(message),
+          backgroundColor: Colors.green,
+        ),
       );
       context.go('/home');
     }
@@ -109,6 +114,15 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 Text(
                   authState.error!,
                   style: const TextStyle(color: Colors.red),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+
+              if (authState.successMessage != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  authState.successMessage!,
+                  style: const TextStyle(color: Colors.green),
                   textAlign: TextAlign.center,
                 ),
               ],

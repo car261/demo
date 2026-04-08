@@ -6,12 +6,29 @@ import 'package:chatgpt_clone/features/auth/presentation/screens/login_screen.da
 import 'package:chatgpt_clone/features/auth/presentation/screens/signup_screen.dart';
 import 'package:chatgpt_clone/features/chat/presentation/screens/home_screen.dart';
 import 'package:chatgpt_clone/features/chat/presentation/screens/chat_screen.dart';
+import 'package:chatgpt_clone/features/auth/presentation/providers/auth_provider.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
+  final authState = ref.watch(authProvider);
+
   return GoRouter(
     initialLocation: '/',
     debugLogDiagnostics: true,
     observers: [RouteLoggingObserver()],
+    redirect: (context, state) {
+      if (!authState.isInitialized) {
+        return null;
+      }
+
+      final hasToken = authState.token != null && authState.token!.isNotEmpty;
+      final location = state.uri.toString();
+
+      if (hasToken && (location == '/' || location == '/login' || location == '/signup')) {
+        return '/home';
+      }
+
+      return null;
+    },
     routes: [
       GoRoute(
         path: '/',

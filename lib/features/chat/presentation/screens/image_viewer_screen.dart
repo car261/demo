@@ -1,5 +1,6 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
+
+import 'package:chatgpt_clone/shared/widgets/adaptive_image.dart';
 
 class ImageViewerScreen extends StatelessWidget {
   final String imagePath;
@@ -24,8 +25,8 @@ class ImageViewerScreen extends StatelessWidget {
           panEnabled: true,
           minScale: 0.5,
           maxScale: 4.0,
-          child: Image.file(
-            File(imagePath),
+          child: buildAdaptiveImage(
+            imagePath,
             fit: BoxFit.contain,
           ),
         ),

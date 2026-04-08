@@ -6,7 +6,7 @@ class Config:
     # Core secrets / tokens
     JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "dev_secret")
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(
-        minutes=int(os.getenv("JWT_ACCESS_TOKEN_MINUTES", "60"))
+        days=int(os.getenv("JWT_ACCESS_TOKEN_DAYS", "7"))
     )
 
     # Database
@@ -15,6 +15,9 @@ class Config:
     # Cache
     REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
     REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
+
+    # SQLite
+    SQLITE_PATH = os.getenv("SQLITE_PATH", "chat.db")
 
     # Flask / CORS options (can be overridden via env if needed)
     JSON_SORT_KEYS = False

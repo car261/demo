@@ -3,14 +3,17 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import 'package:chatgpt_clone/core/services/api_service.dart';
+import 'package:chatgpt_clone/features/auth/presentation/providers/auth_provider.dart';
 import 'package:chatgpt_clone/features/chat/domain/models/chat.dart';
 import 'package:chatgpt_clone/features/chat/domain/models/message.dart';
 
 const _uuid = Uuid();
 
 class ChatListNotifier extends StateNotifier<List<Chat>> {
+  ChatListNotifier(this.ref) : super(_mockChats);
+
+  final Ref ref;
   final ApiService _apiService = ApiService();
-  ChatListNotifier() : super(_mockChats);
 
   static final List<Chat> _mockChats = [
     Chat(
@@ -87,6 +90,10 @@ class ChatListNotifier extends StateNotifier<List<Chat>> {
     state = state.where((chat) => chat.id != chatId).toList();
   }
 
+  void clearChats() {
+    state = [];
+  }
+
   Chat? getChatById(String id) {
     try {
       return state.firstWhere((chat) => chat.id == id);
@@ -113,9 +120,11 @@ class ChatListNotifier extends StateNotifier<List<Chat>> {
 
     try {
       // Call API with correct endpoint
+      final token = ref.read(authProvider).token;
       final response = await _apiService.post(
         '/api/chat',
         data: {'message': userMessage},
+        token: token,
       );
 
       Map<String, dynamic>? data;
@@ -131,7 +140,7 @@ class ChatListNotifier extends StateNotifier<List<Chat>> {
       if (response.statusCode == 200) {
         // Parse response according to standard format
         final responseData = data?['data'] as Map<String, dynamic>?;
-        final aiResponse = responseData?['assistant'] as String?;
+        final aiResponse = (responseData?['assistant'] ?? responseData?['reply']) as String?;
         
         if (aiResponse != null && aiResponse.isNotEmpty) {
           // Add AI message
@@ -163,6 +172,77 @@ class ChatListNotifier extends StateNotifier<List<Chat>> {
     }
   }
 
+  Future<void> loadHistory() async {
+    final token = ref.read(authProvider).token;
+    if (token == null || token.isEmpty) {
+      return;
+    }
+
+    try {
+      final response = await _apiService.get(
+        '/api/history',
+        token: token,
+      );
+
+      Map<String, dynamic>? data;
+      try {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic>) {
+          data = decoded;
+        }
+      } catch (_) {
+        data = null;
+      }
+
+      if (response.statusCode != 200) {
+        return;
+      }
+
+      final responseData = data?['data'] as Map<String, dynamic>?;
+      final rawMessages = responseData?['messages'] ?? responseData?['chats'];
+      if (rawMessages is! List) {
+        return;
+      }
+
+      final messages = <Message>[];
+      for (final item in rawMessages) {
+        if (item is! Map) continue;
+
+        final text = item['message'] as String?;
+        final isUser = item['is_user'] == true || item['is_user'] == 1;
+        final rawTimestamp = item['timestamp'] as String?;
+        final parsed = rawTimestamp != null ? DateTime.tryParse(rawTimestamp) : null;
+
+        if (text == null || text.isEmpty) continue;
+
+        messages.add(
+          Message(
+            id: _uuid.v4(),
+            text: text,
+            isUser: isUser,
+            timestamp: parsed ?? DateTime.now(),
+          ),
+        );
+      }
+
+      if (messages.isEmpty) {
+        return;
+      }
+
+      final createdAt = messages.first.timestamp;
+      final historyChat = Chat(
+        id: 'history',
+        title: 'Chat History',
+        messages: messages,
+        createdAt: createdAt,
+      );
+
+      state = [historyChat];
+    } catch (_) {
+      return;
+    }
+  }
+
   void _addErrorMessage(String chatId, String errorText) {
     final finalChat = getChatById(chatId);
     if (finalChat != null) {
@@ -183,5 +263,5 @@ class ChatListNotifier extends StateNotifier<List<Chat>> {
 }
 
 final chatListProvider = StateNotifierProvider<ChatListNotifier, List<Chat>>((ref) {
-  return ChatListNotifier();
+  return ChatListNotifier(ref);
 });

@@ -152,6 +152,7 @@ class AppDrawer extends ConsumerWidget {
               leading: const Icon(Icons.logout_outlined, size: 22),
               title: const Text('Logout', style: TextStyle(fontSize: 14)),
               onTap: () {
+                ref.read(chatListProvider.notifier).clearChats();
                 ref.read(authProvider.notifier).logout();
                 context.go('/');
               },

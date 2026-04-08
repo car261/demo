@@ -9,18 +9,45 @@ services:
       - mongo
       - redis
     environment:
-      # Point backend to Docker service names instead of localhost
+      FLASK_ENV: development
+      FLASK_APP: app.py
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
       MONGO_URI: mongodb://mongo:27017/chatgpt_clone
       REDIS_HOST: redis
+    volumes:
+      - .:/app
+      - sqlite_data:/app/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   mongo:
     image: mongo
     restart: unless-stopped
     ports:
       - "27017:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
 
   redis:
     image: redis
     restart: unless-stopped
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  sqlite_data:
