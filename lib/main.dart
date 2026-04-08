@@ -4,6 +4,7 @@ import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 
 void main() {
+  debugPrint('App starting...');
   runApp(
     const ProviderScope(
       child: MyApp(),
@@ -25,6 +26,16 @@ class MyApp extends ConsumerWidget {
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system,
       routerConfig: router,
+      builder: (context, child) {
+        if (child == null) {
+          return const Scaffold(
+            body: Center(
+              child: Text('App Running'),
+            ),
+          );
+        }
+        return child;
+      },
     );
   }
 }

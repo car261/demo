@@ -26,7 +26,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   Future<void> _handleSignup() async {
     final success = await ref.read(authProvider.notifier).signup(
       _nameController.text,
-      _emailController.text,
       _passwordController.text,
     );
 

@@ -111,22 +111,12 @@ class ChatListNotifier extends StateNotifier<List<Chat>> {
     final chat = getChatById(chatId);
     if (chat == null) return;
 
-    // Add user message
-    final userMsg = Message(
-      id: _uuid.v4(),
-      text: userMessage,
-      isUser: true,
-      timestamp: DateTime.now(),
-    );
-
-    final updatedChat = chat.copyWith(
-      messages: [...chat.messages, userMsg],
-    );
-    updateChat(updatedChat);
-
     try {
-      // Call API
-      final response = await _apiService.post('/ask', data: {'query': userMessage});
+      // Call API with correct endpoint
+      final response = await _apiService.post(
+        '/api/chat',
+        data: {'message': userMessage},
+      );
 
       Map<String, dynamic>? data;
       try {
@@ -139,55 +129,55 @@ class ChatListNotifier extends StateNotifier<List<Chat>> {
       }
 
       if (response.statusCode == 200) {
-        final dynamic rawResponse = data?['response'];
-        final aiResponse = rawResponse is String && rawResponse.isNotEmpty
-            ? rawResponse
-            : 'No response';
+        // Parse response according to standard format
+        final responseData = data?['data'] as Map<String, dynamic>?;
+        final aiResponse = responseData?['assistant'] as String?;
+        
+        if (aiResponse != null && aiResponse.isNotEmpty) {
+          // Add AI message
+          final aiMsg = Message(
+            id: _uuid.v4(),
+            text: aiResponse,
+            isUser: false,
+            timestamp: DateTime.now(),
+          );
 
-        // Add AI message
-        final aiMsg = Message(
-          id: _uuid.v4(),
-          text: aiResponse,
-          isUser: false,
-          timestamp: DateTime.now(),
-        );
-
-        final finalChat = updatedChat.copyWith(
-          messages: [...updatedChat.messages, aiMsg],
-        );
-        updateChat(finalChat);
+          final finalChat = getChatById(chatId);
+          if (finalChat != null) {
+            updateChat(
+              finalChat.copyWith(
+                messages: [...finalChat.messages, aiMsg],
+              ),
+            );
+          }
+        } else {
+          _addErrorMessage(chatId, 'No response received');
+        }
       } else {
-        final dynamic rawError = data?['error'];
-        final errorText = rawError is String && rawError.isNotEmpty
-            ? rawError
-            : 'Failed to get response';
-
-        // Add error message
-        final errorMsg = Message(
-          id: _uuid.v4(),
-          text: 'Error: $errorText',
-          isUser: false,
-          timestamp: DateTime.now(),
-        );
-
-        final finalChat = updatedChat.copyWith(
-          messages: [...updatedChat.messages, errorMsg],
-        );
-        updateChat(finalChat);
+        // Handle error response
+        final message = data?['message'] as String?;
+        _addErrorMessage(chatId, message ?? 'Failed to get response');
       }
     } catch (e) {
-      // Add error message
+      _addErrorMessage(chatId, 'Network error: ${e.toString()}');
+    }
+  }
+
+  void _addErrorMessage(String chatId, String errorText) {
+    final finalChat = getChatById(chatId);
+    if (finalChat != null) {
       final errorMsg = Message(
         id: _uuid.v4(),
-        text: 'Network error: ${e.toString()}',
+        text: 'Error: $errorText',
         isUser: false,
         timestamp: DateTime.now(),
       );
 
-      final finalChat = updatedChat.copyWith(
-        messages: [...updatedChat.messages, errorMsg],
+      updateChat(
+        finalChat.copyWith(
+          messages: [...finalChat.messages, errorMsg],
+        ),
       );
-      updateChat(finalChat);
     }
   }
 }

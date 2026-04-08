@@ -10,7 +10,7 @@ from routes.auth_routes import auth_bp
 from routes.llm_routes import llm_bp
 from routes.predict_routes import predict_bp
 from services.response import api_response
-
+from routes.llm_routes import llm_bp
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -108,10 +108,9 @@ def handle_unexpected_exception(exc: Exception):
 
 
 # Register routes
-app.register_blueprint(auth_bp)
-app.register_blueprint(llm_bp)
-app.register_blueprint(predict_bp)
-
+app.register_blueprint(auth_bp, url_prefix="/api/auth")
+app.register_blueprint(predict_bp, url_prefix="/api")
+app.register_blueprint(llm_bp, url_prefix="/api")
 
 @app.route("/health", methods=["GET"])
 def health() -> tuple[dict, int]:

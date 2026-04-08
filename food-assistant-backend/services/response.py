@@ -1,21 +1,13 @@
 from flask import jsonify
 
+def success_response(data, status=200):
+    return jsonify({
+        "status": "success",
+        "data": data
+    }), status
 
-def api_response(*, data=None, message="", status_code=200, success=True, errors=None):
-    """Standard JSON response wrapper for frontend-friendly APIs.
-
-    All responses follow the shape:
-    {
-        "success": bool,
-        "message": str,
-        "data": any,
-        "errors": any
-    }
-    """
-    payload = {
-        "success": success,
-        "message": message,
-        "data": data,
-        "errors": errors,
-    }
-    return jsonify(payload), status_code
+def error_response(message, status=400):
+    return jsonify({
+        "status": "error",
+        "message": message
+    }), status

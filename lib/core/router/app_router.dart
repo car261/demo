@@ -10,30 +10,82 @@ import 'package:chatgpt_clone/features/chat/presentation/screens/chat_screen.dar
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/',
+    debugLogDiagnostics: true,
+    observers: [RouteLoggingObserver()],
     routes: [
       GoRoute(
         path: '/',
-        builder: (context, state) => const LandingScreen(),
+        builder: (context, state) {
+          debugPrint('Route loaded: /');
+          return const LandingScreen();
+        },
       ),
       GoRoute(
         path: '/login',
-        builder: (context, state) => const LoginScreen(),
+        builder: (context, state) {
+          debugPrint('Route loaded: /login');
+          return const LoginScreen();
+        },
       ),
       GoRoute(
         path: '/signup',
-        builder: (context, state) => const SignupScreen(),
+        builder: (context, state) {
+          debugPrint('Route loaded: /signup');
+          return const SignupScreen();
+        },
       ),
       GoRoute(
         path: '/home',
-        builder: (context, state) => const HomeScreen(),
+        builder: (context, state) {
+          debugPrint('Route loaded: /home');
+          return const HomeScreen();
+        },
       ),
       GoRoute(
         path: '/chat/:id',
         builder: (context, state) {
           final chatId = state.pathParameters['id']!;
+          debugPrint('Route loaded: /chat/$chatId');
           return ChatScreen(chatId: chatId);
         },
       ),
     ],
+    errorBuilder: (context, state) {
+      debugPrint('Router error: ${state.error}');
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('App Running'),
+              const SizedBox(height: 12),
+              Text(
+                'Routing error. Showing fallback UI.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () => context.go('/'),
+                child: const Text('Go to start'),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
   );
 });
+
+class RouteLoggingObserver extends NavigatorObserver {
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    debugPrint('Navigator push: ${route.settings.name}');
+    super.didPush(route, previousRoute);
+  }
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    debugPrint('Navigator pop: ${route.settings.name}');
+    super.didPop(route, previousRoute);
+  }
+}

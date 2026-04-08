@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
@@ -86,11 +85,11 @@ class ChatNotifier {
       ),
     );
 
-    // Call backend /predict with the selected image
+    // Call backend /api/predict with the selected image
     String analysisText;
     try {
       final response = await _apiService.postMultipart(
-        '/predict',
+        '/api/predict',
         filePath: imagePath,
       );
 
@@ -105,22 +104,34 @@ class ChatNotifier {
       }
 
       if (response.statusCode == 200) {
-        final dynamic rawIngredients = data?['ingredients'];
-        final ingredients = rawIngredients is List
-            ? rawIngredients.whereType<String>().toList()
-            : <String>[];
+        // Parse response according to standard format
+        final responseData = data?['data'] as Map<String, dynamic>?;
+        
+        if (responseData != null) {
+          // Extract prediction data
+          final dishName = responseData['dish_name'] ?? 'Unknown dish';
+          final rawIngredients = responseData['ingredients'];
+          final ingredients = rawIngredients is List
+              ? rawIngredients.whereType<String>().toList()
+              : <String>[];
+          final calories = responseData['calories'];
+          final protein = responseData['protein'];
 
-        if (ingredients.isEmpty) {
-          analysisText = 'No ingredients detected.';
+          // Create analysis text
+          final ingredientsList = ingredients.isEmpty 
+              ? 'No ingredients detected'
+              : 'Ingredients: ${ingredients.join(', ')}';
+          
+          analysisText = '''Dish: $dishName
+$ingredientsList
+Calories: ${calories ?? 'N/A'} kcal
+Protein: ${protein ?? 'N/A'} g''';
         } else {
-          analysisText = 'Ingredients: ${ingredients.join(', ')}';
+          analysisText = 'No prediction data received';
         }
       } else {
-        final dynamic rawError = data?['error'];
-        final errorText = rawError is String && rawError.isNotEmpty
-            ? rawError
-            : 'Unknown error';
-        analysisText = 'Prediction failed: $errorText';
+        final message = data?['message'] as String?;
+        analysisText = 'Prediction failed: ${message ?? 'Unknown error'}';
       }
     } catch (e) {
       analysisText = 'Network error during prediction: ${e.toString()}';
